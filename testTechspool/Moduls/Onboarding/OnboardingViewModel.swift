@@ -24,7 +24,7 @@ final class OnboardingViewModel {
     }
     
     struct Dependencies {
-        let storage: OnboardingStorageProtocol
+        let storage: UDProtocol
     }
     
     private let deps: Dependencies

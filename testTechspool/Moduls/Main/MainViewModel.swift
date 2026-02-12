@@ -16,9 +16,9 @@ protocol MainViewModelProtocol {
 
 final class MainViewModel: MainViewModelProtocol {
 
-    private let storage: OnboardingStorageProtocol
+    private let storage: UDProtocol
 
-    init(storage: OnboardingStorageProtocol) {
+    init(storage: UDProtocol) {
         self.storage = storage
     }
 

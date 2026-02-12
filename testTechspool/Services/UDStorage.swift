@@ -8,7 +8,7 @@
 import Foundation
 
 
-protocol OnboardingStorageProtocol {
+protocol UDProtocol {
     func update(key: UDStorage.Keys, value: Bool)
     func value(key: UDStorage.Keys) -> Bool
 }
@@ -24,7 +24,7 @@ final class UDStorage {
 
 // MARK: - OnboardingStorageProtocol
 
-extension UDStorage: OnboardingStorageProtocol {
+extension UDStorage: UDProtocol {
     
     func update(key: UDStorage.Keys, value: Bool) {
         userDefaults.set(value, forKey: key.rawValue)

@@ -8,12 +8,24 @@
 import UIKit
 import SnapKit
 
+// MARK: - Delegate
+
+protocol MainVCDelegate: AnyObject {
+    func mainVCButtonTapped(_ mainVC: MainVC)
+}
+
 final class MainVC: UIViewController {
 
     // MARK: - Properties
 
     private let viewModel: MainViewModelProtocol
-    private let button = UIButton(type: .system)
+    
+    weak var delegate: MainVCDelegate?
+
+    private let button: UIButton = {
+        let btn = UIButton(type: .system)
+        return btn
+    }()
 
     // MARK: - Init
 
@@ -29,23 +41,21 @@ final class MainVC: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        configure()
-        showOnboardingIfNeeded()
+        configureButton()
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        configure()
+        configureButton()
     }
 }
 
-// MARK: - Private
+// MARK: - Private UI Setup
 
 private extension MainVC {
 
     func setupUI() {
         view.backgroundColor = .systemBackground
-
         view.addSubview(button)
 
         button.snp.makeConstraints {
@@ -54,33 +64,15 @@ private extension MainVC {
             $0.width.equalTo(220)
         }
 
-        button.addTarget(self, action: #selector(onboardingTapped), for: .touchUpInside)
+        button.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
     }
 
-    func configure() {
+    func configureButton() {
         button.setTitle(viewModel.buttonTitle, for: .normal)
         button.isEnabled = viewModel.isButtonEnabled
     }
-
-    func showOnboardingIfNeeded() {
-        guard viewModel.shouldShowOnboarding else { return }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.onboardingTapped()
-        }
+    
+    @objc func buttonTapped() {
+        delegate?.mainVCButtonTapped(self)
     }
-
-    @objc func onboardingTapped() {
-        let slides = OnboardingSlidesFactory.make()
-
-        let onboardingVM = OnboardingViewModel(
-            slides: slides,
-            deps: .init(storage: UDStorage())
-        )
-
-        let vc = OnboardingVC(viewModel: onboardingVM)
-        vc.modalPresentationStyle = .fullScreen
-        present(vc, animated: true)
-    }
-
 }
