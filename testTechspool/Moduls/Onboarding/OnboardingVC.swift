@@ -10,59 +10,83 @@ import SnapKit
 import Combine
 
 final class OnboardingVC: UIViewController {
-
-    weak var delegate: OnboardingDelegate?
-
-    private let viewModel: OnboardingViewModel
-    private var cancellables = Set<AnyCancellable>()
-
-    private let collectionView: UICollectionView
-    private let pageControl = UIPageControl()
-    private let nextButton = UIButton(type: .system)
-    private let closeButton = UIButton(type: .system)
-
-    init(viewModel: OnboardingViewModel) {
-        self.viewModel = viewModel
-
+    
+    // MARK: UI Elements
+    
+    private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.minimumLineSpacing = 0
         layout.sectionInset = .zero
-
-        self.collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        
+        let view = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        view.isPagingEnabled = true
+        view.showsHorizontalScrollIndicator = false
+        view.dataSource = self
+        view.delegate = self
+        view.register(OnboardingCell.self, forCellWithReuseIdentifier: "OnboardingCell")
+        return view
+    }()
+    
+    private lazy var pageControl: UIPageControl = {
+        let page = UIPageControl()
+        page.numberOfPages = viewModel.slidesCount
+        page.currentPage = 0
+        return page
+    }()
+    
+    private lazy var nextButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle(viewModel.btnTitle(), for: .normal)
+        btn.titleLabel?.font = .boldSystemFont(ofSize: 18)
+        btn.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
+        return btn
+    }()
+    
+    private lazy var closeButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("×", for: .normal)
+        btn.titleLabel?.font = .boldSystemFont(ofSize: 28)
+        btn.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        return btn
+    }()
+    
+    // MARK: properties
+    
+    private let viewModel: OnboardingViewModel
+    private var cancellables = Set<AnyCancellable>()
+    
+    // MARK: init
+    
+    init(viewModel: OnboardingViewModel) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
-
+    
     required init?(coder: NSCoder) { fatalError() }
-
+    
+    // MARK: overrides funcs
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         bindViewModel()
     }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        pageControl.currentPageIndicatorTintColor = .label
+        pageControl.pageIndicatorTintColor = .secondaryLabel
+    }
+}
 
-    private func setupUI() {
+// MARK: - private funcs
+
+private extension OnboardingVC {
+    func setupUI() {
         view.backgroundColor = .systemBackground
-
-        collectionView.isPagingEnabled = true
-        collectionView.showsHorizontalScrollIndicator = false
-        collectionView.dataSource = self
-        collectionView.delegate = self
-        collectionView.register(OnboardingCell.self, forCellWithReuseIdentifier: "OnboardingCell")
-
-        pageControl.numberOfPages = viewModel.slides.count
-        pageControl.currentPage = 0
-
-        nextButton.setTitle("Далее", for: .normal)
-        nextButton.titleLabel?.font = .boldSystemFont(ofSize: 18)
-        nextButton.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
-
-        closeButton.setTitle("×", for: .normal)
-        closeButton.titleLabel?.font = .boldSystemFont(ofSize: 28)
-        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-
         [collectionView, pageControl, nextButton, closeButton].forEach { view.addSubview($0) }
-
+        
         collectionView.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview()
             $0.top.equalTo(view.safeAreaLayoutGuide.snp.top)
@@ -84,67 +108,70 @@ final class OnboardingVC: UIViewController {
         }
     }
     
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        
-        pageControl.currentPageIndicatorTintColor = .label
-        pageControl.pageIndicatorTintColor = .secondaryLabel
-    }
-
-    private func bindViewModel() {
+    func bindViewModel() {
         viewModel.$currentPage.sink { [weak self] page in
             guard let self = self else { return }
             self.pageControl.currentPage = page
-            let isLast = page == self.viewModel.slides.count - 1
             UIView.transition(with: self.nextButton, duration: 0.3, options: .transitionCrossDissolve) {
-                self.nextButton.setTitle(isLast ? "Начать работу" : "Далее", for: .normal)
+                self.nextButton.setTitle(self.viewModel.btnTitle(), for: .normal)
             }
         }.store(in: &cancellables)
     }
-
-    @objc private func nextTapped() {
-        if let next = viewModel.nextPage() {
+    
+    @objc func nextTapped() {
+        if let next = viewModel.updatePageIndex() {
             viewModel.currentPage = next
             collectionView.scrollToItem(at: IndexPath(item: next, section: 0), at: .centeredHorizontally, animated: true)
         } else {
             viewModel.completeOnboarding()
-            delegate?.didFinishOnboarding()
             dismiss(animated: true)
         }
     }
-
-    @objc private func closeTapped() {
+    
+    @objc func closeTapped() {
         viewModel.completeOnboarding()
-        delegate?.didFinishOnboarding()
         dismiss(animated: true)
     }
 }
 
-// MARK: - UICollectionView
-extension OnboardingVC: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+// MARK: - UICollectionViewDataSource
 
+extension OnboardingVC: UICollectionViewDataSource {
+    
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        viewModel.slides.count
+        viewModel.slidesCount
     }
+}
 
+// MARK: - UICollectionViewDelegateFlowLayout
+
+extension OnboardingVC: UICollectionViewDelegateFlowLayout {
+    
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "OnboardingCell", for: indexPath) as! OnboardingCell
-        cell.configure(with: viewModel.slides[indexPath.item])
+        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "OnboardingCell", for: indexPath) as? OnboardingCell,
+              let model = viewModel.page(for: indexPath.item) else {
+            assertionFailure()
+            return UICollectionViewCell()
+        }
+        cell.configure(with: model)
         return cell
     }
-
+    
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard let visibleCells = collectionView.visibleCells as? [OnboardingCell] else { return }
+        
         let offsetX = scrollView.contentOffset.x
-        for cell in collectionView.visibleCells as! [OnboardingCell] {
+        
+        for cell in visibleCells {
             let delta = offsetX - cell.frame.origin.x
-            cell.setParallax(offset: delta, width: collectionView.frame.width)
+            cell.setParallax(offset: delta)
         }
     }
-
+    
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         viewModel.currentPage = Int(scrollView.contentOffset.x / scrollView.frame.width)
     }
-
+    
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         collectionView.frame.size
     }

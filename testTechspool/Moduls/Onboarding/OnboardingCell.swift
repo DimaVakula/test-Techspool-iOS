@@ -9,23 +9,30 @@ import UIKit
 import SnapKit
 
 final class OnboardingCell: UICollectionViewCell {
+    
     private let slideView = OnboardingSlideView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.addSubview(slideView)
-        slideView.snp.makeConstraints { $0.edges.equalToSuperview() }
+        setupUI()
     }
-
+    
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(with model: OnboardingSlide) {
+    func configure(with model: OnboardingSlideModel) {
         slideView.configure(with: model)
     }
 
-    func setParallax(offset: CGFloat, width: CGFloat) {
-        slideView.imageView.snp.updateConstraints { make in
-            make.centerX.equalToSuperview().offset(offset * 0.2)
-        }
+    func setParallax(offset: CGFloat) {
+        slideView.applyParallax(offset: offset)
+    }
+}
+
+// MARK: - private func
+
+private extension OnboardingCell {
+    func setupUI() {
+        contentView.addSubview(slideView)
+        slideView.snp.makeConstraints { $0.edges.equalToSuperview() }
     }
 }
